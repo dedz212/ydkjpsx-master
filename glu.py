@@ -3,7 +3,7 @@ import sys
 import json
 
 def process_glu_file_qbd(glu_file):
-    print("Reading the contents of a .glu file...")
+    print("Reading the contents of a .glu file:", glu_file)
     with open(glu_file, 'rb') as f:
         data = f.read()
 
@@ -37,16 +37,26 @@ def process_glu_file_qbd(glu_file):
         "true": correct_answer_position
     }
 
+    # Create a folder for the .glu file
+    if not os.path.exists(id_data):
+        os.makedirs(id_data)
+
     # Export data to JSON file
+    json_file = os.path.join(id_data, f'{id_data}.json')
     print(f'Export data to JSON file {id_data}.json...')
-    with open(f'{id_data}.json', 'w', encoding='utf-8') as f:
+    with open(json_file, 'w', encoding='utf-8') as f:
         json.dump(output_data, f, ensure_ascii=False, indent=4)
 
     print(".json processing is complete")
 
+def process_all_glu_files():
+    glu_files = [f for f in os.listdir() if f.lower().endswith('.glu')]
+    for glu_file in glu_files:
+        process_glu_file_qbd(glu_file)
+        process_glu_file_vag(glu_file)
 
 def process_glu_file_vag(glu_file):
-    print("Reading the contents of a .glu file...")
+    print("Reading the contents of a .glu file:", glu_file)
     with open(glu_file, 'rb') as f:
         data = f.read()
 
@@ -83,20 +93,28 @@ def process_glu_file_vag(glu_file):
 
         vag_counter += 1
 
+    # Create a folder for the .glu file
+    folder_name = os.path.splitext(glu_file)[0]
+    if not os.path.exists(folder_name):
+        os.makedirs(folder_name)
+    
     # Export to .vag
     print("Exporting data to .vag files...")
     for prefix, vag_block in vag_data:
-        vag_filename = f'{prefix}.vag'
+        vag_filename = os.path.join(folder_name, f'{prefix}.vag')
         with open(vag_filename, 'wb') as f:
             f.write(vag_block)
 
     print(".vag processing is complete")
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Usage: python glu.py <filename .glu>")
-        print("Example: python glu.py BUA.GLU")
-    else:
-        glu_file = sys.argv[1]
+    if len(sys.argv) == 3 and sys.argv[1] == 'file':
+        glu_file = sys.argv[2]
         process_glu_file_qbd(glu_file)
         process_glu_file_vag(glu_file)
+    elif len(sys.argv) == 2 and sys.argv[1] == 'all':
+        process_all_glu_files()
+    else:
+        print("Usage: python glu.py file <filename>")
+        print("Usage: python glu.py all (The .glu files must be located in the same place as the produced (.py) file)")
+        print("Example: python glu.py file BUA.GLU")
