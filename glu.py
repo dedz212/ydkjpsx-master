@@ -3,7 +3,7 @@ import sys
 import json
 
 def process_data(data_block):
-    return data_block.replace(b'\x00', b'').replace(b'\xd2', b'\xe2\x80\x9c').replace(b'\xd3', b'\xe2\x80\x9d').replace(b'\xd5', b"'").replace(b'\x96', b"\xC3\xB1").replace(b'\xaa', b'\xe2\x84\xa2').replace(b'\x7B', b'').decode('utf-8').rstrip('\x00')
+    return data_block.replace(b'\x00', b'').replace(b'\xd2', b'\xe2\x80\x9c').replace(b'\xd3', b'\xe2\x80\x9d').replace(b'\xd4', b"\xe2\x80\x98").replace(b'\xd5', b"\xe2\x80\x99").replace(b'\x96', b"\xC3\xB1").replace(b'\xaa', b'\xe2\x84\xa2').replace(b'\x7B', b'').replace(b'\x97', b'o').decode('utf-8').rstrip('\x00')
 
 def process_glu_file_qbd(glu_file, isall=None):
     glu_file_name = os.path.basename(glu_file)
@@ -21,23 +21,37 @@ def process_glu_file_qbd(glu_file, isall=None):
     # Getting the question type
     if id_value == 0x01:
         id_type = "Simple Question"
+    elif id_value == 0x02:
+        id_type = "DisOrDat"
     elif id_value == 0x03:
         id_type = "Wendithap'n"
+    elif id_value == 0x05:
+        id_type = "Jack Attack"
     else:
         print('Skip')
         return
 
     # Find positions for each data block | Defining values of variables
+    id_start = 0x804
     if id_value == 0x01:
-        id_start = 0x804
         category_start = 0x819
         question_start = 0x868
         options_start = 0x930
-    elif id_value == 0x03:
-        id_start = 0x804
-        category_start = 0x818
+    elif id_value == 0x02:
+        category_start = 0x819
+        category_end = 0x84F
         question_start = 0x8B0
         question_end = 0x8DF
+        left = 0x930
+        right = 0x950
+    elif id_value == 0x03:
+        category_start = 0x818
+        category_end = 0x84F
+        question_start = 0x8B0
+        question_end = 0x8E0
+    elif id_value == 0x05:
+        category_start = 0x819
+        category_end = 0x84F
 
     # Extracting data
     id_data = process_data(data[id_start:id_start + 3])
@@ -46,8 +60,20 @@ def process_glu_file_qbd(glu_file, isall=None):
         question_data = process_data(data[question_start:options_start])
         options_data = [process_data(data[options_start + i:options_start + i + 64]) for i in range(0, 256, 64)]
         correct_answer_position = data[0xA38] # Identifying the correct answer
+    elif id_value == 0x02:
+        category_data = process_data(data[category_start:category_end])
+        question_data = process_data(data[question_start:question_end])
+        answer_mapping = {0: process_data(data[left:left + 16]), 1: process_data(data[right:right + 16])}
+        answers = []
+        for i in range(7):
+            text_offset = 0x970 + 0x20 * i
+            text = process_data(data[text_offset:text_offset + 0x20])
+            answer_offset = 0xA50 + i * 2
+            answer_value = data[answer_offset]
+            answer_text = answer_mapping.get(answer_value, "Error")
+            answers.append({"text": text, "answer": answer_text})
     elif id_value == 0x03:
-        category_data = process_data(data[category_start:question_start])
+        category_data = process_data(data[category_start:category_end])
         question_data = process_data(data[question_start:question_end])
         answer_mapping = {1: "Before", 2: "After", 3: "Never"}
         answers = []
@@ -58,7 +84,21 @@ def process_glu_file_qbd(glu_file, isall=None):
             answer_value = data[answer_offset]
             answer_text = answer_mapping.get(answer_value, "Error")
             answers.append({"text": text, "answer": answer_text})
-        
+    elif id_value == 0x05:
+        category_data = process_data(data[category_start:category_end])
+        roots = []
+        answers = []
+        for i in range(20):
+            root_offset = 0x860 + 0x20 * i
+            root = process_data(data[root_offset:root_offset + 0x20])
+            roots.append(root)
+        for i in range(7):
+            title_offset = 0xAE0 + 0x20 * i
+            title = process_data(data[title_offset:title_offset + 0x20])
+            answer_offset = 0xBC0 + 0x20 * i
+            answer_text = process_data(data[answer_offset:answer_offset + 0x20])
+            answers.append({"title": title, "answer": answer_text})
+
     # Create a dictionary for the data
     output_data = {}
     if id_value == 0x01:
@@ -70,6 +110,14 @@ def process_glu_file_qbd(glu_file, isall=None):
             "answers": {str(i + 1): option for i, option in enumerate(options_data)},
             "true": correct_answer_position
         }
+    elif id_value == 0x02:
+        output_data = {
+            "id": id_data,
+            "type": id_type,
+            "category": category_data,
+            "question": question_data,
+            "answers": answers
+        }
     elif id_value == 0x03:
         output_data = {
             "id": id_data,
@@ -77,6 +125,14 @@ def process_glu_file_qbd(glu_file, isall=None):
             "category": category_data,
             "question": question_data,
             "answers": answers
+        }
+    elif id_value == 0x05:
+        output_data = {
+            "id": id_data,
+            "type": id_type,
+            "category": category_data,
+            "answers": answers,
+            "root": roots
         }
 
     # Export data to JSON file
@@ -87,9 +143,9 @@ def process_glu_file_qbd(glu_file, isall=None):
         json_file = os.path.join(json_folder, f'{id_data}.json')
     else:
         # Create a folder for the .glu file
-        if not os.path.exists(id_data):
-            os.makedirs(id_data)
-        json_file = os.path.join(id_data, f'{id_data}.json')
+        if not os.path.exists(os.path.splitext(glu_file)[0]):
+            os.makedirs(os.path.splitext(glu_file)[0])
+        json_file = os.path.join(os.path.splitext(glu_file)[0], f'{os.path.splitext(os.path.basename(glu_file))[0]}.json')
     print(f'Export data to JSON file {id_data}.json...')
     with open(json_file, 'w', encoding='utf-8') as f:
         json.dump(output_data, f, ensure_ascii=False, indent=4)
@@ -157,7 +213,7 @@ def process_glu_file_vag(glu_file, isall=None):
         vag_names.append(name)
 
         # Find the end of VAG block
-        end_index = start_index + int.from_bytes(data[start_index + 0xE:start_index + 0x10], byteorder='big') + 0x10
+        end_index = start_index + int.from_bytes(data[start_index + 0xC:start_index + 0x10], byteorder='big') + 0x10
         vag_data.append((vag_names[vag_counter - 1], data[start_index:end_index]))
 
         start_index = data.find(b'\x56\x41\x47\x70', end_index)
