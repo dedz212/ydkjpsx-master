@@ -3,7 +3,7 @@ import sys
 import json
 
 def process_data(data_block):
-    return data_block.replace(b'\x00', b'').replace(b'\xd2', b'\xe2\x80\x9c').replace(b'\xd3', b'\xe2\x80\x9d').replace(b'\xd4', b"\xe2\x80\x98").replace(b'\xd5', b"\xe2\x80\x99").replace(b'\x96', b"\xC3\xB1").replace(b'\xaa', b'\xe2\x84\xa2').replace(b'\x7B', b'').replace(b'\x97', b'o').decode('utf-8').rstrip('\x00')
+    return data_block.replace(b'\x00', b'').replace(b'\xd2', b'\xe2\x80\x9c').replace(b'\xd3', b'\xe2\x80\x9d').replace(b'\xd4', b"\xe2\x80\x98").replace(b'\xd5', b"\xe2\x80\x99").replace(b'\x96', b"\xC3\xB1").replace(b'\xaa', b'\xe2\x84\xa2').replace(b'\x7B', b'').replace(b'\x97', b'o').replace(b'\xC9', b'\xe2\x80\xa6').decode('utf-8').rstrip('\x00')
 
 def process_glu_file_qbd(glu_file, isall=None):
     glu_file_name = os.path.basename(glu_file)
@@ -25,14 +25,17 @@ def process_glu_file_qbd(glu_file, isall=None):
         id_type = "DisOrDat"
     elif id_value == 0x03:
         id_type = "Wendithap'n"
+    elif id_value == 0x04:
+        id_type = "Coinkydink"
     elif id_value == 0x05:
         id_type = "Jack Attack"
     else:
-        print('Skip')
+        print('wtf?')
         return
 
     # Find positions for each data block | Defining values of variables
     id_start = 0x804
+    category_end = 0x84F
     if id_value == 0x01:
         category_start = 0x819
         question_start = 0x868
@@ -46,12 +49,12 @@ def process_glu_file_qbd(glu_file, isall=None):
         right = 0x950
     elif id_value == 0x03:
         category_start = 0x818
-        category_end = 0x84F
         question_start = 0x8B0
         question_end = 0x8E0
+    elif id_value == 0x04:
+        category_start = 0x818
     elif id_value == 0x05:
         category_start = 0x819
-        category_end = 0x84F
 
     # Extracting data
     id_data = process_data(data[id_start:id_start + 3])
@@ -84,6 +87,27 @@ def process_glu_file_qbd(glu_file, isall=None):
             answer_value = data[answer_offset]
             answer_text = answer_mapping.get(answer_value, "Error")
             answers.append({"text": text, "answer": answer_text})
+    elif id_value == 0x04:
+        category_data = process_data(data[category_start:category_end])
+        texts = []
+        roots = []
+        answers = []
+        for i in range(6):
+            end_offset = 0x860 + 0x40 * i
+            end = process_data(data[end_offset:end_offset + 0x40])
+            texts.append(end)
+        for i in range(35):
+            root_offset = 0xCF0 + 0x20 * i
+            root = process_data(data[root_offset:root_offset + 0x20])
+            roots.append(root)
+        for i in range(7):
+            left_offset = 0x9E8 + 0x28 * i
+            left = process_data(data[left_offset:left_offset + 0x20])
+            right_offset = 0xB00 + 0x28 * i
+            right = process_data(data[right_offset:right_offset + 0x27])
+            answer_offset = 0xC18 + 24 * i
+            answer_text = process_data(data[answer_offset:answer_offset + 0x20])
+            answers.append({"left": left, "right": right, "answer": answer_text})
     elif id_value == 0x05:
         category_data = process_data(data[category_start:category_end])
         roots = []
@@ -125,6 +149,15 @@ def process_glu_file_qbd(glu_file, isall=None):
             "category": category_data,
             "question": question_data,
             "answers": answers
+        }
+    elif id_value == 0x04:
+        output_data = {
+            "id": id_data,
+            "type": id_type,
+            "category": category_data,
+            "answers": answers,
+            "end": {"text": texts, "true": 1},
+            "root": roots
         }
     elif id_value == 0x05:
         output_data = {

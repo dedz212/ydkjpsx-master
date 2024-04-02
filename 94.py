@@ -18,20 +18,28 @@ def process_94_file_psxexe(kyuhuyon_file):
 
     # Extracting data
     magicnum = data[magicnum_start:magicnum_start + 8].decode('ascii').strip('\0')
-    execution_start_address = hex(int.from_bytes(data[execution_start_address_start:execution_start_address_start + 4], byteorder='little'))
-    text_section_start_address = hex(int.from_bytes(data[text_section_start_address_start:text_section_start_address_start + 4], byteorder='little'))
-    text_section_size = hex(int.from_bytes(data[text_section_size_start:text_section_size_start + 4], byteorder='little'))
-    stack_start_address = hex(int.from_bytes(data[stack_start_address_start:stack_start_address_start + 4], byteorder='little'))
     region_specific = data[region_specific_start:end].replace(b'\x00', b'').replace(b'\xd5', b"'").decode('utf-8').rstrip('\x00')
+    initial_pc = hex(int.from_bytes(data[0x10:0x14], byteorder='little'))
+    initial_gp = hex(int.from_bytes(data[0x14:0x18], byteorder='little'))
+    destination_address_in_ram = hex(int.from_bytes(data[0x18:0x1C], byteorder='little'))
+    filesize = hex(int.from_bytes(data[0x1C:0x20], byteorder='little'))
+    memfill_start_address = hex(int.from_bytes(data[0x28:0x2C], byteorder='little'))
+    memfill_size = hex(int.from_bytes(data[0x2C:0x30], byteorder='little'))
+    initial_sp_fp_base = hex(int.from_bytes(data[0x30:0x34], byteorder='little'))
+    initial_sp_fp_offs = hex(int.from_bytes(data[0x34:0x38], byteorder='little'))
 
     # Create a dictionary for the data
     output_data = {
         "magicnum": magicnum,
-        "execution_start_address": execution_start_address,
-        "text_section_start_address": text_section_start_address,
-        "text_section_size": text_section_size,
-        "stack_start_address": stack_start_address,
-        "region_specific": region_specific
+        "region_specific": region_specific,
+        "initial_pc": initial_pc,
+        "initial_gp": initial_gp,
+        "destination_address_in_ram": destination_address_in_ram,
+        "filesize": filesize,
+        "memfill_start_address": memfill_start_address,
+        "memfill_size": memfill_size,
+        "initial_sp_fp_base": initial_sp_fp_base,
+        "initial_sp_fp_offs": initial_sp_fp_offs
     }
 
     # Create a folder for the .94 file
@@ -46,7 +54,6 @@ def process_94_file_psxexe(kyuhuyon_file):
         json.dump(output_data, f, ensure_ascii=False, indent=4)
 
     print(".json processing is complete")
-
 
 def process_94_file_img(kyuhuyon_file):
     print("IMG | Reading the contents of a .glu file:", kyuhuyon_file)
