@@ -61,7 +61,7 @@ def vag_file_is_valid(input_file):
         print("ERROR: File not found.")
         return False, 0, bytearray(), ""
 
-def decode_vag(vag_data, track_name):
+def decode_vag(vag_data, sample_rate, track_name):
     pcm_data = bytearray()
     hist_1 = 0.0
     hist_2 = 0.0
@@ -77,31 +77,28 @@ def decode_vag(vag_data, track_name):
         sample = vag_data[pos:pos+VAG_SAMPLE_BYTES]
         pos += VAG_SAMPLE_BYTES
 
-        shift = decoding_coefficient & 0xF
+        shift = decoding_coefficient & 0x0F
         predict = (decoding_coefficient & 0xF0) >> 4
 
         if flags == VAGFlag.VAGF_PLAYBACK_END:
             break
-        elif flags == VAGFlag.VAGF_LOOP_START:
-            pass
-        else:
-            samples = [0] * VAG_SAMPLE_NIBBL
 
-            for j in range(VAG_SAMPLE_BYTES):
-                samples[j * 2] = sample[j] & 0xF
-                samples[j * 2 + 1] = (sample[j] & 0xF0) >> 4
+        samples = [0] * VAG_SAMPLE_NIBBL
 
-            for j in range(VAG_SAMPLE_NIBBL):
-                s = samples[j] << 12
-                if s & 0x8000 != 0:
-                    s |= 0xFFFF0000
+        for j in range(VAG_SAMPLE_BYTES):
+            samples[j * 2] = (sample[j] & 0x0F) << 12
+            samples[j * 2 + 1] = (sample[j] & 0xF0) << 8
 
-                predict = min(predict, len(VagLutDecoder) - 1)
-                sample = (s >> shift) + hist_1 * VagLutDecoder[predict][0] + hist_2 * VagLutDecoder[predict][1]
-                hist_2 = hist_1
-                hist_1 = sample
+        for j in range(VAG_SAMPLE_NIBBL):
+            if samples[j] & 0x8000:
+                samples[j] = samples[j] - 0x10000
 
-                pcm_data.extend(struct.pack('<h', max(-32768, min(32767, round(sample)))))
+            predict = min(predict, len(VagLutDecoder) - 1)
+            sample_val = (samples[j] >> shift) + hist_1 * VagLutDecoder[predict][0] + hist_2 * VagLutDecoder[predict][1]
+            hist_2 = hist_1
+            hist_1 = sample_val
+
+            pcm_data.extend(struct.pack('<h', max(-32768, min(32767, round(sample_val)))))
 
     output_filename = f"{track_name}.wav"
     with wave.open(output_filename, 'wb') as wav_file:
@@ -124,9 +121,9 @@ if __name__ == "__main__":
                 input_file = os.path.join(current_dir, filename)
                 is_valid, sample_rate, vag_data, track_name = vag_file_is_valid(input_file)
                 if is_valid:
-                    decode_vag(vag_data, track_name)
+                    decode_vag(vag_data, sample_rate, track_name)
     else:
         input_file = sys.argv[2]
         is_valid, sample_rate, vag_data, track_name = vag_file_is_valid(input_file)
         if is_valid:
-            decode_vag(vag_data, track_name)
+            decode_vag(vag_data, sample_rate, track_name)
