@@ -134,7 +134,7 @@ python inf.py file HTE.INF
 
 ## vagtowav
 The script is a utility for decoding VAG format files (PS2 audio format) into WAV format. VAG files are commonly used for storing sound effects and music in PlayStation games.
-### Основные функции
+### Key Functions
 #### vag_file_is_valid
 * **File Magic and Version**: Checks the file header and its version.
 * **Sampling Rate and Channels**: Extracts the sampling rate and number of channels (only supports mono).
