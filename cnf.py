@@ -4,7 +4,7 @@ import json
 
 
 def process_cnf_file_(cnf_file):
-    print("Reading the contents of a .inf file:", cnf_file)
+    print("Reading the contents of a .cnf file:", cnf_file)
     with open(cnf_file, 'rb') as f:
         data = f.read()
 
@@ -39,4 +39,4 @@ if __name__ == "__main__":
         process_cnf_file_(cnf_file)
     else:
         print("Usage: python cnf.py file <filename>")
-        print("Example: python cnf.py file HTE.INF")
+        print("Example: python cnf.py file SYSTEM.CNF")

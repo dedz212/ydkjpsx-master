@@ -87,3 +87,92 @@ This project provides tools to extract content from YDKJ [Playstation] game file
 - .vag files are audio files. To open them, use the [VAGEDIT](https://archive.org/download/Sony-PSX-tools/VAGEDIT.zip) program.
 - To extract the game itself, you need a .bin file of the game and the [jPSXdec](https://github.com/m35/jpsxdec/releases/tag/v2.0) program.
 
+## .glu
+This script is a tool for extracting and processing data from .glu files used in games to store various types of content such as questions (QBD), audio (VAG), and images (IMG).
+
+### Content
+#### QBD
+This code block is designed to extract structured data from QBD (Question Block Data) blocks within .glu files. QBD blocks contain information about questions and answers for different question types.
+The question type is determined by reading the value at offset 0x808 (id_value).
+
+Depending on the id_value, the question type is identified as either "Simple Question", "DisOrDat", "Wendithap'n", "Coinkydink", or "Jack Attack".
+Each question type has different offsets and data structure:
+* **Simple Question**: Category, question, answer options, and correct answer.
+* **DisOrDat**: Category, question, two answer options with their corresponding matches.
+* **Wendithap'n**: Category, question, seven answer options with their corresponding matches.
+* **Coinkydink**: Category, texts, roots, and answers.
+* **Jack Attack**: Category, roots, and answers.
+A JSON file is created with the name corresponding to the question ID, where a structured dictionary of data is stored.
+
+#### VAG
+This code block is designed to extract and save audio data in VAG format from .glu files. It searches for VAG blocks using the signature 0x56\x41\x47\x70. It finds the names of VAG files within the .glu file using a .VAG signature search. Each found VAG block is read and saved into a corresponding .vag file.
+
+#### IMG
+This code block is designed to extract and save graphic data in IMG format from .glu files. It determines the starting index to search for the beginning of IMG blocks using the signature 0x49\x4D\x47\x34. It finds the names of IMG files within the .glu file using a .IMG signature search. Each found IMG block is read and saved into a corresponding .img file.
+
+### Usage
+The project supports two usage modes via the command line:
+* Processes a specific .glu file.
+```
+python glu.py file <filename>
+```
+*  Processes all .glu files in the current directory.
+```
+python glu.py all
+```
+
+## .inf
+The script extracts and analyzes data from .inf files used to store information about question types and category names.
+* **Map ID (mape_id)**: Unique identifier of the content.
+* **Data containers**: Extracts up to 15 data containers, each containing:
+* * **content_id**: Identifier of the content.
+* * **category_data**: Category of the data.
+* * **type_data**: Type of data, which can be one of the predefined values (Simple Question, DisOrDat, Wendithap'n, Coinkydink, Jack Attack).
+```
+python inf.py file HTE.INF
+```
+
+## vagtowav
+The script is a utility for decoding VAG format files (PS2 audio format) into WAV format. VAG files are commonly used for storing sound effects and music in PlayStation games.
+### Основные функции
+#### vag_file_is_valid
+* **File Magic and Version**: Checks the file header and its version.
+* **Sampling Rate and Channels**: Extracts the sampling rate and number of channels (only supports mono).
+* **Track Name**: Extracts the track name from the file header.
+
+#### decode_vag
+Decodes data from a VAG file into PCM (Pulse-code modulation) format and saves the result to a WAV file:
+* **Data Decoding**: Unpacks data using coefficients and predictive values specified in the VAG header.
+* **Creating WAV File**: Writes the decoded data to a WAV file with the specified sampling rate and mono channel.
+
+### Additional Functions and Constants
+* **VagLutDecoder**: Decoding table used to unpack data from VAG format into PCM.
+* **VAGFlag**: Class of flags used to indicate various operations during VAG data decoding.
+* **Loop offset**: Helper function to compute loop offset in VAG format.
+
+### Usage
+The project supports two usage modes via the command line:
+* Processes a specific .vag file.
+```
+python vagtowav.py file <filename>
+```
+*  Processes all .vag files in the current directory.
+```
+python vagtowav.py all
+```
+
+## .94
+This code serves as a tool for processing .94 files used in PlayStation games (PS-X EXE). It includes functions for extracting information from such files, specifically extracting PS-X EXE data (program code), images (IMG), and audio (VAG).
+Extracts key parameters from a PS-X EXE file (.94) data in JSON format:
+* **Magic Number**: Unique file identifier.
+* **Region Specific**: Region-specific information.
+* **Initial PC, GP, etc.**: Initial addresses and sizes for various code and data segments.
+```
+python 94.py file SLUS_011.94
+```
+
+## .cnf
+This Python script is designed to process files with the .cnf extension, extracting specific data based on given offsets and saving it in JSON format. It reads the contents of the specified file, extracts information about system boot, version, TCB parameters, EVENT, and STACK, then creates a JSON file with a corresponding name containing structured data.
+```
+python cnf.py file SYSTEM.CNF
+```
